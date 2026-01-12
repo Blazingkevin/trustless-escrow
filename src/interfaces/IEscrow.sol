@@ -6,19 +6,19 @@ interface IEscrow {
         Created,
         Funded,
         InProgress,
-        Disputed, 
+        Disputed,
         Resolved,
         Refunded
     }
 
     /**
-    * @param description what work must be completed
-    * @param amount amount that will be paid when work is done (in wei)
-    * @param deadline the deadline of the task
-    * @param completed whether the work has been completed and freelancer has asked for fund release
-    * @param paid whether fund has been released by the client
+     * @param description what work must be completed
+     * @param amount amount that will be paid when work is done (in wei)
+     * @param deadline the deadline of the task
+     * @param completed whether the work has been completed and freelancer has asked for fund release
+     * @param paid whether fund has been released by the client
      */
-    struct Milestone{
+    struct Milestone {
         string description;
         uint256 amount;
         uint256 deadline;
@@ -27,16 +27,16 @@ interface IEscrow {
     }
 
     /**
-    * @param client Address that created escrow and deposited funds
-    * @param freelancer Address that will receive payment
-    * @param arbitrator Address that can resolve dispute (optional, only necessary when there is dispute)
-    * @param token Token address
-    * @param totalAmount Total escrow amount
-    * @param releasedAmount How much has been paid out
-    * @param deadline Final deadline for all work
-    * @param state Current escrow state
-    * @param milestones Array of payment milestones
-    * @param hasArbitrator whether an arbitrator was designated
+     * @param client Address that created escrow and deposited funds
+     * @param freelancer Address that will receive payment
+     * @param arbitrator Address that can resolve dispute (optional, only necessary when there is dispute)
+     * @param token Token address
+     * @param totalAmount Total escrow amount
+     * @param releasedAmount How much has been paid out
+     * @param deadline Final deadline for all work
+     * @param state Current escrow state
+     * @param milestones Array of payment milestones
+     * @param hasArbitrator whether an arbitrator was designated
      */
     struct EscrowData {
         address client;
@@ -53,60 +53,29 @@ interface IEscrow {
 
     // emitted when escrow is created
     event EscrowCreated(
-        uint256 indexed escrowId,
-        address indexed client,
-        address indexed freelancer,
-        uint256 amount,
-        address token
+        uint256 indexed escrowId, address indexed client, address indexed freelancer, uint256 amount, address token
     );
 
     // emitted when funds are deposited into escrow
-    event FundDeposited(
-        uint256 indexed escrowId,
-        uint256 amount
-    );
+    event FundDeposited(uint256 indexed escrowId, uint256 amount);
 
-    // emitted when milestone is completed and released 
-    event MilestoneReleased(
-        uint256 indexed escrowId,
-        uint256 milestoneIndex,
-        uint256 amount,
-        address freelancer
-    );
+    // emitted when milestone is completed and released
+    event MilestoneReleased(uint256 indexed escrowId, uint256 milestoneIndex, uint256 amount, address freelancer);
 
     // Emitted when funds are released to freelancer
-    event FundsReleased(
-        uint256 indexed escrowId,
-        uint256 amount,
-        address freelancer
-    );
+    event FundsReleased(uint256 indexed escrowId, uint256 amount, address freelancer);
 
     // emitted when dispute is raised
-    event DisputeRaised(
-        uint256 indexed escrowId,
-        address indexed raiser,
-        string reason
-    );
+    event DisputeRaised(uint256 indexed escrowId, address indexed raiser, string reason);
 
-    // emitted when dispute is resolved 
-    event DisputeResolved (
-        uint256 indexed escrowId,
-        address indexed winner,
-        uint256 amount
-    );
+    // emitted when dispute is resolved
+    event DisputeResolved(uint256 indexed escrowId, address indexed winner, uint256 amount);
 
     // emitted when funds is refunded
-    event FundsRefunded(
-        uint256 indexed escrowId,
-        uint256 amount,
-        address client
-    );
+    event FundsRefunded(uint256 indexed escrowId, uint256 amount, address client);
 
     // emitted when deadline is extended
-    event DeadlineExtended(
-        uint256 indexed escrowId,
-        uint256 newDeadline
-    );
+    event DeadlineExtended(uint256 indexed escrowId, uint256 newDeadline);
 
     // thrown when caller is not authorized for operation
     error NotAuthorized(address caller, address required);
@@ -132,15 +101,11 @@ interface IEscrow {
     // thrown when transfer failed
     error TransferFailed();
 
-
     // create a simple escrow without milestone (I will improve on this)
-    function createEscrow(
-        address _freelancer,
-        address _arbitrator,
-        address _token,
-        uint256 _amount,
-        uint256 _deadline
-    ) external payable returns(uint256 escrowId);
+    function createEscrow(address _freelancer, address _arbitrator, address _token, uint256 _amount, uint256 _deadline)
+        external
+        payable
+        returns (uint256 escrowId);
 
     // release funds from escrow to freelancer
     function releaseToFreelancer(uint256 _escrowId) external;
@@ -149,12 +114,7 @@ interface IEscrow {
     function refundToClient(uint256 _escrowId) external;
 
     // resolve dispute(for arbitrators only)
-    function resolveDispute(
-        uint256 escrowId,
-        address winner,
-        uint256 amount,
-        string calldata _reasoning
-    ) external;
+    function resolveDispute(uint256 escrowId, address winner, uint256 amount, string calldata _reasoning) external;
 
     // get escrow data
     function getEscrow(uint256 _escrowId) external view returns (EscrowData memory data);

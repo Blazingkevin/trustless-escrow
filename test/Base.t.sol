@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Test} from "forge-std/Test.sol" ;
+import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 
 contract BaseTest is Test {
@@ -50,10 +50,7 @@ contract BaseTest is Test {
         vm.label(user2, "User2");
     }
 
-    function createUser(
-        string memory label,
-        uint256 balance
-    ) public returns (address addr) {
+    function createUser(string memory label, uint256 balance) public returns (address addr) {
         addr = makeAddr(label);
         vm.deal(addr, balance);
         vm.label(addr, label);
