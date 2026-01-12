@@ -1,66 +1,20 @@
-## Foundry
+# TrustlessEscrow Protocol
+After understanding the fundamentals of blockchain and the problem it stands to solve, as part of my learning journey, I decided to build TrustlessEscrow.
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+## About the project
 
-Foundry consists of:
+TrustlessEscrow is a multi-party escrow system with dispute resolution built on Ethereum-compatible blockchains. It solves real freelancer payment problems by enabling milestone-based payments, arbitration, and trustless fund management without requiring centralized intermediaries.
 
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+**Problem:** Freelancers and clients often face payment disputes, where neither party trusts the other to fulfill their obligations. Traditional escrow services charge 5-10% fees or more and can be biased.
 
-## Documentation
+**Solution:** A smart contract-based escrow system that:
+- Holds funds in code, not in a company's hands
+- Enables milestone-based releases
+- Provides decentralized arbitration
+- Supports multiple payment tokens (ETH, ERC20)
+- Has emergency recovery mechanisms
 
-https://book.getfoundry.sh/
-
-## Usage
-
-### Build
-
-```shell
-$ forge build
-```
-
-### Test
-
-```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+**Target Users:**
+- Freelancers (developers, designers, writers)
+- Clients (individuals, small businesses, DAOs)
+- Arbitrators (trusted community members for now but I read there are approaches to build decentralized arbitration too)
