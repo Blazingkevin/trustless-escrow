@@ -77,6 +77,9 @@ interface IEscrow {
     // emitted when deadline is extended
     event DeadlineExtended(uint256 indexed escrowId, uint256 newDeadline);
 
+    // emitted when funds are deposited into escrow
+    event FundsDeposited(uint256 indexed escrowId, uint256 amount);
+
     // thrown when caller is not authorized for operation
     error NotAuthorized(address caller, address required);
 
@@ -100,6 +103,12 @@ interface IEscrow {
 
     // thrown when transfer failed
     error TransferFailed();
+
+    // thrown when action is attempted by an arbitrator that is not assigned
+    error NoArbitratorAssigned();
+
+    // when attempting to use zero address
+    error ZeroAddress();
 
     // create a simple escrow without milestone (I will improve on this)
     function createEscrow(address _freelancer, address _arbitrator, address _token, uint256 _amount, uint256 _deadline)
