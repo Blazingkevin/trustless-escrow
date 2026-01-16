@@ -10,7 +10,7 @@ import "./interfaces/IEscrow.sol";
 
 contract Escrow is IEscrow, ReentrancyGuard, Pausable, Ownable {
     using SafeERC20 for IERC20;
-    
+
     uint256 _nextEscrowId;
     mapping(uint256 => EscrowData) private _escrows;
 
@@ -167,6 +167,151 @@ contract Escrow is IEscrow, ReentrancyGuard, Pausable, Ownable {
 
     function getEscrow(uint256 _escrowId) external view escrowExists(_escrowId) returns (EscrowData memory) {
         return _escrows[_escrowId];
+    }
+
+    function createEscrowWithMilestones(
+        address _freelancer,
+        address _arbitrator,
+        address _token,
+        Milestone[] calldata _milestones
+    ) external payable whenNotPaused nonReentrant returns (uint256 escrowId) {
+        // Validate inputs
+        if (_freelancer == address(0)) revert ZeroAddress();
+        if (_milestones.length == 0) revert InvalidAmount();
+
+        uint256 totalAmount = 0;
+        for (uint256 i = 0; i < _milestones.length; i++) {
+            // Validate each milestone
+            if (_milestones[i].amount == 0) revert InvalidAmount();
+            if (_milestones[i].deadline <= block.timestamp) {
+                revert DeadlinePassed(_milestones[i].deadline, block.timestamp);
+            }
+
+            totalAmount += _milestones[i].amount;
+        }
+
+        if (totalAmount == 0) revert InvalidAmount();
+
+        escrowId = _nextEscrowId++;
+
+        if (_token == address(0)) {
+            // For ETH escrow
+            if (msg.value != totalAmount) revert InvalidAmount();
+        } else {
+            // For ERC20 escrow
+            if (msg.value != 0) revert InvalidAmount();
+            IERC20(_token).safeTransferFrom(msg.sender, address(this), totalAmount);
+        }
+
+        // Deduct platform fee
+        uint256 fee = (totalAmount * platformFeePercent) / 10000;
+        uint256 netAmount = totalAmount - fee;
+        platformFees[_token] += fee;
+
+        // Create escrow data
+        EscrowData storage escrow = _escrows[escrowId];
+        escrow.client = msg.sender;
+        escrow.freelancer = _freelancer;
+        escrow.arbitrator = _arbitrator;
+        escrow.token = _token;
+        escrow.totalAmount = netAmount;
+        escrow.releasedAmount = 0;
+        escrow.deadline = _milestones[_milestones.length - 1].deadline; // Last milestone deadline
+        escrow.state = EscrowState.Funded;
+        escrow.hasArbitrator = _arbitrator != address(0);
+
+        for (uint256 i = 0; i < _milestones.length; i++) {
+            escrow.milestones.push(_milestones[i]);
+        }
+
+        // Emit events
+        emit EscrowCreated(escrowId, msg.sender, _freelancer, netAmount, _token);
+        emit FundsDeposited(escrowId, netAmount);
+
+        return escrowId;
+    }
+
+    function completeMilestone(uint256 _escrowId, uint256 _milestoneIndex)
+        external
+        whenNotPaused
+        nonReentrant
+        escrowExists(_escrowId)
+        onlyFreelancer(_escrowId)
+        inState(_escrowId, EscrowState.Funded)
+    {
+        EscrowData storage escrow = _escrows[_escrowId];
+
+        if (_milestoneIndex >= escrow.milestones.length) {
+            revert InvalidMilestoneIndex(_milestoneIndex, escrow.milestones.length - 1);
+        }
+
+        Milestone storage milestone = escrow.milestones[_milestoneIndex];
+
+        if (milestone.paid) {
+            revert MilestoneAlreadyPaid(_milestoneIndex);
+        }
+
+        milestone.completed = true;
+
+        emit MilestoneCompleted(_escrowId, _milestoneIndex);
+    }
+
+    function releaseMilestone(uint256 _escrowId, uint256 _milestoneIndex)
+        external
+        whenNotPaused
+        nonReentrant
+        escrowExists(_escrowId)
+        onlyClient(_escrowId)
+        inState(_escrowId, EscrowState.Funded)
+    {
+        EscrowData storage escrow = _escrows[_escrowId];
+
+        if (_milestoneIndex >= escrow.milestones.length) {
+            revert InvalidMilestoneIndex(_milestoneIndex, escrow.milestones.length - 1);
+        }
+
+        Milestone storage milestone = escrow.milestones[_milestoneIndex];
+
+        if (milestone.paid) {
+            revert MilestoneAlreadyPaid(_milestoneIndex);
+        }
+
+        uint256 amount = milestone.amount;
+
+        milestone.paid = true;
+        escrow.releasedAmount += amount;
+
+        if (escrow.releasedAmount == escrow.totalAmount) {
+            escrow.state = EscrowState.Resolved;
+        }
+
+        _transfer(escrow.token, escrow.freelancer, amount);
+
+        emit MilestoneReleased(_escrowId, _milestoneIndex, amount, escrow.freelancer);
+    }
+
+    function getMilestone(uint256 _escrowId, uint256 _milestoneIndex)
+        external
+        view
+        escrowExists(_escrowId)
+        returns (Milestone memory milestone)
+    {
+        EscrowData storage escrow = _escrows[_escrowId];
+
+        if (_milestoneIndex >= escrow.milestones.length) {
+            revert InvalidMilestoneIndex(_milestoneIndex, escrow.milestones.length - 1);
+        }
+
+        return escrow.milestones[_milestoneIndex];
+    }
+
+        function getMilestoneCount(uint256 _escrowId)
+        external
+        view
+        escrowExists(_escrowId)
+        returns (uint256 count)
+    {
+        return _escrows[_escrowId].milestones.length;
     }
 
     function _transfer(address _token, address _to, uint256 _amount) internal {

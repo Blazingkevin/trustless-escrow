@@ -62,6 +62,9 @@ interface IEscrow {
     // emitted when milestone is completed and released
     event MilestoneReleased(uint256 indexed escrowId, uint256 milestoneIndex, uint256 amount, address freelancer);
 
+    // Emitted when freelancer completes a milestone
+    event MilestoneCompleted(uint256 indexed escrowId, uint256 milestoneIndex);
+
     // Emitted when funds are released to freelancer
     event FundsReleased(uint256 indexed escrowId, uint256 amount, address freelancer);
 
@@ -127,4 +130,24 @@ interface IEscrow {
 
     // get escrow data
     function getEscrow(uint256 _escrowId) external view returns (EscrowData memory data);
+
+    // Create escrow with milestones
+    function createEscrowWithMilestones(
+        address _freelancer,
+        address _arbitrator,
+        address _token,
+        Milestone[] calldata _milestones
+    ) external payable returns (uint256 escrowId);
+
+    // Freelancer marks milestone as completed
+    function completeMilestone(uint256 _escrowId, uint256 _milestoneIndex) external;
+
+    // Client releases payment for a completed milestone
+    function releaseMilestone(uint256 _escrowId, uint256 _milestoneIndex) external;
+
+    // Get details of a specific milestone
+    function getMilestone(uint256 _escrowId, uint256 _milestoneIndex) external view returns (Milestone memory milestone);
+
+    // Get total number of milestones for an escrow
+    function getMilestoneCount(uint256 _escrowId) external view returns (uint256 count);
 }
