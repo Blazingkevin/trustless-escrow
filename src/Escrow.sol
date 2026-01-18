@@ -160,11 +160,6 @@ contract Escrow is IEscrow, ReentrancyGuard, Pausable, Ownable {
         emit FundsReleased(_escrowId, amountToRelease, escrow.freelancer);
     }
 
-    function resolveDispute(uint256 _escrowId, address _winner, uint256 _amount, string calldata _reasoning) external {
-        // I will implement later when I think through it properly
-        revert("Not implemented yet");
-    }
-
     function getEscrow(uint256 _escrowId) external view escrowExists(_escrowId) returns (EscrowData memory) {
         return _escrows[_escrowId];
     }
@@ -305,13 +300,98 @@ contract Escrow is IEscrow, ReentrancyGuard, Pausable, Ownable {
         return escrow.milestones[_milestoneIndex];
     }
 
-        function getMilestoneCount(uint256 _escrowId)
-        external
-        view
-        escrowExists(_escrowId)
-        returns (uint256 count)
-    {
+    function getMilestoneCount(uint256 _escrowId) external view escrowExists(_escrowId) returns (uint256 count) {
         return _escrows[_escrowId].milestones.length;
+    }
+
+    function raiseDispute(uint256 _escrowId, string calldata _reason)
+        external
+        whenNotPaused
+        nonReentrant
+        escrowExists(_escrowId)
+    {
+        EscrowData storage escrow = _escrows[_escrowId];
+
+        if (!escrow.hasArbitrator) {
+            revert CannotDisputeWithoutArbitrator();
+        }
+
+        bool isClient = msg.sender == escrow.client;
+        bool isFreelancer = msg.sender == escrow.freelancer;
+
+        if (!isClient && !isFreelancer) {
+            revert OnlyPartiesCanRaiseDispute(msg.sender);
+        }
+
+        if (escrow.state != EscrowState.Funded) {
+            revert InvalidState(escrow.state, EscrowState.Funded);
+        }
+
+        if (bytes(_reason).length == 0) {
+            revert EmptyDisputeReason();
+        }
+
+        escrow.state = EscrowState.Disputed;
+
+        escrow.disputeReason = _reason;
+        escrow.disputeRaiser = msg.sender;
+        escrow.disputeRaisedAt = block.timestamp;
+
+        emit DisputeRaised(_escrowId, msg.sender, _reason);
+    }
+
+    function resolveDispute(uint256 _escrowId, address _winner, uint256 _amount, string calldata _reasoning)
+        external
+        whenNotPaused
+        nonReentrant
+        escrowExists(_escrowId)
+        onlyArbitrator(_escrowId)
+    {
+        EscrowData storage escrow = _escrows[_escrowId];
+
+        if (escrow.state != EscrowState.Disputed) {
+            revert NoActiveDispute();
+        }
+
+        bool isClient = _winner == escrow.client;
+        bool isFreelancer = _winner == escrow.freelancer;
+
+        if (!isClient && !isFreelancer) {
+            revert OnlyPartiesCanRaiseDispute(_winner);
+        }
+
+        if (_amount == 0) {
+            revert ZeroResolutionAmount();
+        }
+
+        uint256 totalFunds = escrow.totalAmount - escrow.releasedAmount;
+        uint256 arbitrationFee = (totalFunds * 200) / 10000;
+        uint256 availableForDistribution = totalFunds - arbitrationFee;
+
+        if (_amount > availableForDistribution) {
+            revert InsufficientFundsForResolution(_amount, availableForDistribution);
+        }
+
+        if (bytes(_reasoning).length == 0) {
+            revert EmptyDisputeReason();
+        }
+
+        escrow.state = EscrowState.Resolved;
+
+        address loser = isClient ? escrow.freelancer : escrow.client;
+        uint256 loserAmount = availableForDistribution - _amount;
+
+        if (arbitrationFee > 0) {
+            SafeERC20.safeTransfer(IERC20(escrow.token), escrow.arbitrator, arbitrationFee);
+        }
+
+        SafeERC20.safeTransfer(IERC20(escrow.token), _winner, _amount);
+
+        if (loserAmount > 0) {
+            SafeERC20.safeTransfer(IERC20(escrow.token), loser, loserAmount);
+        }
+
+        emit DisputeResolved(_escrowId, _winner, _amount);
     }
 
     function _transfer(address _token, address _to, uint256 _amount) internal {

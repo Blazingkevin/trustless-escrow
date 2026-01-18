@@ -49,6 +49,9 @@ interface IEscrow {
         EscrowState state;
         Milestone[] milestones;
         bool hasArbitrator;
+        string disputeReason;
+        address disputeRaiser;
+        uint256 disputeRaisedAt;
     }
 
     // emitted when escrow is created
@@ -113,6 +116,27 @@ interface IEscrow {
     // when attempting to use zero address
     error ZeroAddress();
 
+    // Thrown when a dispute has already been raised
+    error DisputeAlreadyActive();
+
+    // thrown when trying to raise dispute without an arbitrator
+    error CannotDisputeWithoutArbitrator();
+
+    // Thrown when non-party tries to raise dispute
+    error OnlyPartiesCanRaiseDispute(address caller);
+
+    // Thrown when trying to perform action on non-disputed escrow
+    error NoActiveDispute();
+
+    // Thrown when dispute reason is empty
+    error EmptyDisputeReason();
+
+    // Thrown when resolution amount exceeds available funds
+    error InsufficientFundsForResolution(uint256 requested, uint256 available);
+
+    // Thrown when resolution amount is zero
+    error ZeroResolutionAmount();
+
     // create a simple escrow without milestone (I will improve on this)
     function createEscrow(address _freelancer, address _arbitrator, address _token, uint256 _amount, uint256 _deadline)
         external
@@ -150,4 +174,7 @@ interface IEscrow {
 
     // Get total number of milestones for an escrow
     function getMilestoneCount(uint256 _escrowId) external view returns (uint256 count);
+
+    // Raise a dispute
+    function raiseDispute(uint256 _escrowId, string calldata _reason) external;
 }
