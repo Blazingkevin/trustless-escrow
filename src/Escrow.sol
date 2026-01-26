@@ -16,6 +16,10 @@ contract Escrow is IEscrow, ReentrancyGuard, Pausable, Ownable {
 
     uint256 public platformFeePercent = 100; // using basis point i.e 1%
     uint256 public constant MAX_PLATFORM_FEE = 1000; // 10% max
+
+    // Grace period after deadline before funds can be claimed
+    uint256 public constant GRACE_PERIOD = 7 days;
+
     mapping(address => uint256) public platformFees;
 
     //helpful modifiers
@@ -401,5 +405,93 @@ contract Escrow is IEscrow, ReentrancyGuard, Pausable, Ownable {
         } else {
             IERC20(_token).safeTransfer(_to, _amount);
         }
+    }
+
+
+    function claimAfterDeadline(uint256 _escrowId) 
+        external 
+        nonReentrant 
+        whenNotPaused
+        onlyFreelancer(_escrowId)
+    {
+        EscrowData storage escrowData = _escrows[_escrowId];
+        
+        // Check: Escrow must be in Funded state
+        if (escrowData.state != EscrowState.Funded) {
+            revert InvalidState(escrowData.state, EscrowState.Funded);
+        }
+        
+        // Check: Grace period must have ended
+        uint256 claimableAt = escrowData.deadline + GRACE_PERIOD;
+        if (block.timestamp <= claimableAt) {
+            revert GracePeriodNotEnded(claimableAt, block.timestamp);
+        }
+        
+        /**
+         * LEARNING: block.timestamp
+         * ═══════════════════════════════════════════════════════════════════════
+         * block.timestamp returns current block's timestamp (in seconds).
+         * 
+         * IMPORTANT NOTES:
+         * - Set by block miner
+         * - Can be manipulated ~15 seconds
+         * - Don't use for critical randomness!
+         * - OK for time-locks (hours/days range)
+         * 
+         * MANIPULATION LIMITS:
+         * - Miners can't set timestamp too far in past
+         * - Must be > parent block timestamp
+         * - Must be < current time + ~15 seconds
+         * - Network rejects blocks with bad timestamps
+         * 
+         * SAFE USES:
+         * ✓ Deadlines (hours/days)
+         * ✓ Time locks
+         * ✓ Vesting schedules
+         * 
+         * UNSAFE USES:
+         * ✗ Randomness (use Chainlink VRF)
+         * ✗ Sub-minute precision
+         * ✗ Critical security decisions
+         */
+        
+        // Calculate amount to transfer (all remaining funds)
+        uint256 remainingAmount = escrowData.totalAmount - escrowData.releasedAmount;
+        
+        // Effects: Update state BEFORE transfer
+        escrowData.releasedAmount = escrowData.totalAmount;
+        escrowData.state = EscrowState.Resolved;
+        
+        // Interactions: Transfer funds last
+        _transfer(escrowData.token, escrowData.freelancer, remainingAmount);
+        
+        emit FundsReleased(_escrowId, remainingAmount, escrowData.freelancer);
+    }
+    
+    function extendDeadline(uint256 _escrowId, uint256 _newDeadline) 
+        external 
+        whenNotPaused
+        onlyClient(_escrowId)
+    {
+        EscrowData storage escrowData = _escrows[_escrowId];
+        
+        // Check: Escrow must be in Funded state
+        if (escrowData.state != EscrowState.Funded) {
+            revert InvalidState(escrowData.state, EscrowState.Funded);
+        }
+        
+        // Check: New deadline must be in the future
+        if (_newDeadline <= block.timestamp) {
+            revert InvalidDeadlineExtension(escrowData.deadline, _newDeadline);
+        }
+        
+        // Check: New deadline must be later than current
+        if (_newDeadline <= escrowData.deadline) {
+            revert InvalidDeadlineExtension(escrowData.deadline, _newDeadline);
+        }
+        
+        escrowData.deadline = _newDeadline;
+        
+        emit DeadlineExtended(_escrowId, _newDeadline);
     }
 }

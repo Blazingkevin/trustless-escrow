@@ -137,6 +137,12 @@ interface IEscrow {
     // Thrown when resolution amount is zero
     error ZeroResolutionAmount();
 
+    // Thrown when trying to claim before grace period ends
+    error GracePeriodNotEnded(uint256 claimableAt, uint256 currentTime);
+
+    // Thrown when trying to extend deadline to invalid time
+    error InvalidDeadlineExtension(uint256 currentDeadline, uint256 newDeadline);
+
     // create a simple escrow without milestone (I will improve on this)
     function createEscrow(address _freelancer, address _arbitrator, address _token, uint256 _amount, uint256 _deadline)
         external
@@ -174,6 +180,12 @@ interface IEscrow {
 
     // Get total number of milestones for an escrow
     function getMilestoneCount(uint256 _escrowId) external view returns (uint256 count);
+
+    // Freelancer claims funds after deadline + grace period
+    function claimAfterDeadline(uint256 _escrowId) external;
+
+    // Client extends the deadline for work completion
+    function extendDeadline(uint256 _escrowId, uint256 _newDeadline) external;
 
     // Raise a dispute
     function raiseDispute(uint256 _escrowId, string calldata _reason) external;
